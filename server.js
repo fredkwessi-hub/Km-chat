@@ -1,5 +1,5 @@
 // ================================================================
-// ========== SERVER.JS - VERSION COMPLÈTE ==========
+// ========== SERVER.JS - SERVEUR PRINCIPAL ==========
 // ================================================================
 
 const express = require('express');
@@ -75,26 +75,32 @@ app.use('/uploads', express.static('uploads'));
 // ROUTES PAGES HTML
 // ================================================================
 
+// Page d'accueil
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Page Explorer
 app.get('/explore', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'explore.html'));
 });
 
+// Page Tendances
 app.get('/trends', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'trends.html'));
 });
 
+// Page Social
 app.get('/social', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'social.html'));
 });
 
+// Page Liste des salons
 app.get('/chat', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'chat.html'));
 });
 
+// Page de discussion individuelle (ROOM)
 app.get('/room/:roomId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'room.html'));
 });

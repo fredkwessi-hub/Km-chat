@@ -2,10 +2,6 @@
 // ========== EXPLORE.JS - PAGE EXPLORER ==========
 // ================================================================
 
-// ================================================================
-// CHARGEMENT DES SALONS
-// ================================================================
-
 let allRooms = [];
 let currentFilter = 'all';
 
@@ -13,12 +9,14 @@ function createRoomCard(room) {
     const div = document.createElement('div');
     div.className = 'room-card';
     div.dataset.category = room.category || 'général';
+
+    // ==== CORRECTION : Redirection vers /room/ ====
     div.onclick = function() {
         const username = prompt('👤 Entrez votre pseudo :', 'Anonyme') || 'Anonyme';
         if (username) {
             sessionStorage.setItem('username', username);
             sessionStorage.setItem('roomId', room.id);
-            window.location.href = '/chat/' + room.id;
+            window.location.href = '/room/' + room.id;
         }
     };
 
@@ -40,10 +38,8 @@ function loadRooms(category) {
         .then(function(res) { return res.json(); })
         .then(function(rooms) {
             allRooms = rooms;
-
             const popularContainer = document.getElementById('popularRooms');
             const newContainer = document.getElementById('newRooms');
-
             if (!popularContainer || !newContainer) return;
 
             let filteredRooms = rooms;
@@ -53,12 +49,10 @@ function loadRooms(category) {
                 });
             }
 
-            // Salons populaires (les plus actifs)
             const popular = filteredRooms.slice().sort(function(a, b) {
                 return b.participants - a.participants;
             }).slice(0, 6);
 
-            // Nouveaux salons
             const newest = filteredRooms.slice().filter(function(room) {
                 return !room.isDefault;
             }).slice(0, 6);
@@ -101,18 +95,12 @@ function loadRooms(category) {
         });
 }
 
-// ================================================================
-// FILTRES
-// ================================================================
-
 function initFilters() {
     const filters = document.querySelectorAll('.filter-btn');
-
     filters.forEach(function(filter) {
         filter.addEventListener('click', function() {
             filters.forEach(function(f) { f.classList.remove('active'); });
             this.classList.add('active');
-
             const category = this.dataset.filter;
             currentFilter = category;
             loadRooms(category);
@@ -120,19 +108,11 @@ function initFilters() {
     });
 }
 
-// ================================================================
-// INITIALISATION
-// ================================================================
-
 document.addEventListener('DOMContentLoaded', function() {
     loadRooms('all');
     initFilters();
-
-    // Rafraîchir toutes les 30 secondes
     setInterval(function() { loadRooms(currentFilter); }, 30000);
-
     console.log('✅ Page Explorer chargée');
 });
 
-// Exposer les fonctions globalement
 window.loadRooms = loadRooms;

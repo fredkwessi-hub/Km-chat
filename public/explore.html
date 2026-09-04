@@ -699,28 +699,6 @@
         }
 
         /* ================================================================ */
-        /* SECTIONS */
-        /* ================================================================ */
-        .section {
-            padding: 120px 0;
-            position: relative;
-            z-index: 1;
-        }
-
-        .section--dark {
-            background: var(--color-bg);
-        }
-        .section--darker {
-            background: #03030a;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 40px;
-        }
-
-        /* ================================================================ */
         /* FOOTER */
         /* ================================================================ */
         .footer {
@@ -893,7 +871,7 @@
         body.theme-dore .btn-primary { background: linear-gradient(135deg, #d4af37, #f5d76e); color: #1a1610; }
         body.theme-dore .btn-primary:hover { box-shadow: 0 20px 50px rgba(212, 175, 55, 0.3); }
         body.theme-dore .nav-logo mark { background: linear-gradient(135deg, #d4af37, #f5d76e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        body.theme-dore .section-title .highlight { background: linear-gradient(135deg, #d4af37, #f5d76e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        body.theme-dore .explore-hero h1 .highlight { background: linear-gradient(135deg, #d4af37, #f5d76e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
         /* --- Blanc pur --- */
         body.theme-blanc {
@@ -1432,12 +1410,14 @@
         const div = document.createElement('div');
         div.className = 'room-card';
         div.dataset.category = room.category || 'général';
+
+        // CORRECTION : Redirection vers /room/ au lieu de /chat/
         div.onclick = function() {
             const username = prompt('👤 Entrez votre pseudo :', 'Anonyme') || 'Anonyme';
             if (username) {
                 sessionStorage.setItem('username', username);
                 sessionStorage.setItem('roomId', room.id);
-                window.location.href = '/chat/' + room.id;
+                window.location.href = '/room/' + room.id;
             }
         };
 

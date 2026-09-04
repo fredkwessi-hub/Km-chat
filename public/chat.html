@@ -1518,7 +1518,7 @@
             if (username) {
                 sessionStorage.setItem('username', username);
                 sessionStorage.setItem('roomId', room.id);
-                window.location.href = '/chat/' + room.id;
+                window.location.href = '/room/' + room.id;
             }
         });
 
@@ -1571,7 +1571,7 @@
         if (username) {
             sessionStorage.setItem('username', username);
             sessionStorage.setItem('roomId', roomId);
-            window.location.href = '/chat/' + roomId;
+            window.location.href = '/room/' + roomId;
         }
     }
 
@@ -1584,13 +1584,11 @@
 
     function closeCreateModal() {
         document.getElementById('createModal').classList.remove('active');
-        // Réinitialiser le formulaire
         document.getElementById('roomNameInput').value = '';
         document.getElementById('roomDescInput').value = '';
         document.getElementById('roomIconInput').value = '💬';
     }
 
-    // Fermer le modal en cliquant à l'extérieur
     document.getElementById('createModal').addEventListener('click', function(e) {
         if (e.target === this) closeCreateModal();
     });
@@ -1625,13 +1623,12 @@
                     closeCreateModal();
                     loadRooms();
 
-                    // Proposer de rejoindre
                     if (confirm('✨ Salon créé ! Voulez-vous le rejoindre maintenant ?')) {
                         const username = prompt('👤 Entrez votre pseudo :', 'Anonyme') || 'Anonyme';
                         if (username) {
                             sessionStorage.setItem('username', username);
                             sessionStorage.setItem('roomId', data.roomId);
-                            window.location.href = '/chat/' + data.roomId;
+                            window.location.href = '/room/' + data.roomId;
                         }
                     }
                 } else {
@@ -1674,13 +1671,11 @@
         loadRooms();
         initSearch();
 
-        // Rafraîchir toutes les 60 secondes
         setInterval(loadRooms, 60000);
 
         console.log('✅ Page Salons chargée');
     });
 
-    // Exposer les fonctions globalement
     window.setTheme = setTheme;
     window.toggleThemeMenu = toggleThemeMenu;
     window.shareOnTwitter = shareOnTwitter;

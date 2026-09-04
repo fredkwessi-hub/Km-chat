@@ -2,20 +2,18 @@
 // ========== TRENDS.JS - PAGE TENDANCES ==========
 // ================================================================
 
-// ================================================================
-// CHARGEMENT DES TENDANCES
-// ================================================================
-
 function createTrendItem(data) {
     const div = document.createElement('div');
     div.className = 'trend-item';
+
+    // ==== CORRECTION : Redirection vers /room/ ====
     div.onclick = function() {
         if (data.type === 'room') {
             const username = prompt('👤 Entrez votre pseudo pour rejoindre :', 'Anonyme') || 'Anonyme';
             if (username) {
                 sessionStorage.setItem('username', username);
                 sessionStorage.setItem('roomId', data.id);
-                window.location.href = '/chat/' + data.id;
+                window.location.href = '/room/' + data.id;
             }
         }
     };
@@ -41,7 +39,6 @@ function loadTrends() {
     fetch('/api/trends')
         .then(function(res) { return res.json(); })
         .then(function(data) {
-            // Top rooms
             const topRoomsContainer = document.getElementById('topRooms');
             if (topRoomsContainer) {
                 topRoomsContainer.innerHTML = '';
@@ -65,7 +62,6 @@ function loadTrends() {
                 }
             }
 
-            // Top posts
             const topPostsContainer = document.getElementById('topPosts');
             if (topPostsContainer) {
                 topPostsContainer.innerHTML = '';
@@ -89,7 +85,6 @@ function loadTrends() {
                 }
             }
 
-            // Top users
             const topUsersContainer = document.getElementById('topUsers');
             if (topUsersContainer) {
                 topUsersContainer.innerHTML = '';
@@ -120,10 +115,6 @@ function loadTrends() {
         });
 }
 
-// ================================================================
-// STATS MINI
-// ================================================================
-
 function loadMiniStats() {
     fetch('/api/stats')
         .then(function(res) { return res.json(); })
@@ -132,7 +123,6 @@ function loadMiniStats() {
             const statMessages = document.getElementById('statMessages');
             const statUsers = document.getElementById('statUsers');
             const statPosts = document.getElementById('statPosts');
-
             if (statRooms) statRooms.textContent = stats.roomsCount || 0;
             if (statMessages) statMessages.textContent = stats.totalMessages || 0;
             if (statUsers) statUsers.textContent = stats.activeUsers || 0;
@@ -141,21 +131,13 @@ function loadMiniStats() {
         .catch(function(error) { console.error('Erreur stats:', error); });
 }
 
-// ================================================================
-// INITIALISATION
-// ================================================================
-
 document.addEventListener('DOMContentLoaded', function() {
     loadTrends();
     loadMiniStats();
-
-    // Rafraîchir toutes les 60 secondes
     setInterval(loadTrends, 60000);
     setInterval(loadMiniStats, 60000);
-
     console.log('✅ Page Tendances chargée');
 });
 
-// Exposer les fonctions globalement
 window.loadTrends = loadTrends;
 window.loadMiniStats = loadMiniStats;

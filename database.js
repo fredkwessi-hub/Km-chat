@@ -1,5 +1,5 @@
 // ================================================================
-// ========== DATABASE.JS - GESTION DES DONNÉES ==========
+// ========== DATABASE.JS - GESTION COMPLÈTE DES DONNÉES ==========
 // ================================================================
 
 const fs = require('fs');
@@ -173,6 +173,11 @@ function removeParticipantFromRoom(roomId, username) {
     return saveRooms(rooms);
 }
 
+function getRoomParticipants(roomId) {
+    const room = getRoom(roomId);
+    return room && room.participants ? room.participants : [];
+}
+
 // ================================================================
 // ========== GESTION DES MESSAGES ==========
 // ================================================================
@@ -253,6 +258,17 @@ function clearRoomMessages(roomId) {
     return saveMessages(messages);
 }
 
+function getTotalMessagesCount() {
+    const messages = getMessages();
+    let total = 0;
+    for (var roomId in messages) {
+        if (messages.hasOwnProperty(roomId)) {
+            total += messages[roomId].length;
+        }
+    }
+    return total;
+}
+
 // ================================================================
 // ========== GESTION DU FLUX D'ACTUALITÉ ==========
 // ================================================================
@@ -321,6 +337,21 @@ function addCommentToFeedPost(postId, comment) {
     return updateFeedPost(postId, { comments: post.comments });
 }
 
+function getFeedStats() {
+    const feed = getFeed();
+    let totalLikes = 0;
+    let totalComments = 0;
+    feed.forEach(function(post) {
+        totalLikes += post.likes || 0;
+        totalComments += (post.comments || []).length;
+    });
+    return {
+        totalPosts: feed.length,
+        totalLikes: totalLikes,
+        totalComments: totalComments
+    };
+}
+
 // ================================================================
 // ========== GESTION DU CONTENU ÉPHÉMÈRE ==========
 // ================================================================
@@ -337,7 +368,6 @@ function addEphemeralContent(content) {
     const ephemeral = getEphemeral();
     ephemeral.push(content);
     const result = saveEphemeral(ephemeral);
-    // Nettoyer les contenus expirés
     cleanEphemeral();
     return result;
 }
@@ -402,7 +432,16 @@ function getStats() {
         roomsCount: Object.keys(rooms).length,
         totalMessages: totalMessages,
         feedCount: feed.length,
-        ephemeralCount: activeEphemeral.length
+        ephemeralCount: activeEphemeral.length,
+        totalParticipants: function() {
+            let count = 0;
+            for (var id in rooms) {
+                if (rooms[id].participants) {
+                    count += rooms[id].participants.length;
+                }
+            }
+            return count;
+        }()
     };
 }
 
@@ -425,7 +464,6 @@ function getRoomStats(roomId) {
 // ========== SAUVEGARDE AUTOMATIQUE ==========
 // ================================================================
 
-// Sauvegarder périodiquement (toutes les 5 minutes)
 setInterval(function() {
     console.log('💾 Sauvegarde automatique effectuée');
 }, 5 * 60 * 1000);
@@ -457,6 +495,7 @@ module.exports = {
     getRoomMessagesCount: getRoomMessagesCount,
     addParticipantToRoom: addParticipantToRoom,
     removeParticipantFromRoom: removeParticipantFromRoom,
+    getRoomParticipants: getRoomParticipants,
 
     // Messages
     getMessages: getMessages,
@@ -469,6 +508,7 @@ module.exports = {
     deleteMessageFromRoom: deleteMessageFromRoom,
     editMessageInRoom: editMessageInRoom,
     clearRoomMessages: clearRoomMessages,
+    getTotalMessagesCount: getTotalMessagesCount,
 
     // Feed
     getFeed: getFeed,
@@ -480,6 +520,7 @@ module.exports = {
     deleteFeedPost: deleteFeedPost,
     likeFeedPost: likeFeedPost,
     addCommentToFeedPost: addCommentToFeedPost,
+    getFeedStats: getFeedStats,
 
     // Éphémère
     getEphemeral: getEphemeral,

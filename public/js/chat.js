@@ -2,10 +2,6 @@
 // ========== CHAT.JS - PAGE DES SALONS ==========
 // ================================================================
 
-// ================================================================
-// CHARGEMENT DES SALONS
-// ================================================================
-
 let allRooms = [];
 
 function createRoomCard(room) {
@@ -26,13 +22,13 @@ function createRoomCard(room) {
         </button>
     `;
 
-    // Cliquer sur la carte (hors bouton) pour voir les détails
+    // ==== CORRECTION : Redirection vers /room/ ====
     div.addEventListener('click', function() {
         const username = prompt('👤 Entrez votre pseudo :', 'Anonyme') || 'Anonyme';
         if (username) {
             sessionStorage.setItem('username', username);
             sessionStorage.setItem('roomId', room.id);
-            window.location.href = '/chat/' + room.id;
+            window.location.href = '/room/' + room.id;
         }
     });
 
@@ -44,12 +40,9 @@ function loadRooms() {
         .then(function(res) { return res.json(); })
         .then(function(rooms) {
             allRooms = rooms;
-
             const grid = document.getElementById('roomsGrid');
             const count = document.getElementById('roomsCount');
-
             if (!grid) return;
-
             grid.innerHTML = '';
             if (count) count.textContent = allRooms.length + ' salons';
 
@@ -77,22 +70,15 @@ function loadRooms() {
         });
 }
 
-// ================================================================
-// REJOINDRE UN SALON
-// ================================================================
-
+// ==== CORRECTION : Redirection vers /room/ ====
 function joinRoom(roomId) {
     const username = prompt('👤 Entrez votre pseudo :', 'Anonyme') || 'Anonyme';
     if (username) {
         sessionStorage.setItem('username', username);
         sessionStorage.setItem('roomId', roomId);
-        window.location.href = '/chat/' + roomId;
+        window.location.href = '/room/' + roomId;
     }
 }
-
-// ================================================================
-// CRÉER UN SALON
-// ================================================================
 
 function openCreateModal() {
     document.getElementById('createModal').classList.add('active');
@@ -100,13 +86,11 @@ function openCreateModal() {
 
 function closeCreateModal() {
     document.getElementById('createModal').classList.remove('active');
-    // Réinitialiser le formulaire
     document.getElementById('roomNameInput').value = '';
     document.getElementById('roomDescInput').value = '';
     document.getElementById('roomIconInput').value = '💬';
 }
 
-// Fermer le modal en cliquant à l'extérieur
 document.getElementById('createModal').addEventListener('click', function(e) {
     if (e.target === this) closeCreateModal();
 });
@@ -141,13 +125,12 @@ function createRoom() {
                 closeCreateModal();
                 loadRooms();
 
-                // Proposer de rejoindre
                 if (confirm('✨ Salon créé ! Voulez-vous le rejoindre maintenant ?')) {
                     const username = prompt('👤 Entrez votre pseudo :', 'Anonyme') || 'Anonyme';
                     if (username) {
                         sessionStorage.setItem('username', username);
                         sessionStorage.setItem('roomId', data.roomId);
-                        window.location.href = '/chat/' + data.roomId;
+                        window.location.href = '/room/' + data.roomId;
                     }
                 }
             } else {
@@ -160,44 +143,29 @@ function createRoom() {
         });
 }
 
-// ================================================================
-// RECHERCHE DE SALONS
-// ================================================================
-
 function initSearch() {
     const searchInput = document.getElementById('searchRooms');
     if (!searchInput) return;
-
     searchInput.addEventListener('input', function() {
         const query = this.value.toLowerCase().trim();
         const cards = document.querySelectorAll('.room-card');
-
         cards.forEach(function(card) {
             const name = card.querySelector('.name')?.textContent?.toLowerCase() || '';
             const desc = card.querySelector('.desc')?.textContent?.toLowerCase() || '';
             const category = card.querySelector('.category')?.textContent?.toLowerCase() || '';
-
             const matches = query === '' || name.includes(query) || desc.includes(query) || category.includes(query);
             card.style.display = matches ? '' : 'none';
         });
     });
 }
 
-// ================================================================
-// INITIALISATION
-// ================================================================
-
 document.addEventListener('DOMContentLoaded', function() {
     loadRooms();
     initSearch();
-
-    // Rafraîchir toutes les 60 secondes
     setInterval(loadRooms, 60000);
-
     console.log('✅ Page Salons chargée');
 });
 
-// Exposer les fonctions globalement
 window.loadRooms = loadRooms;
 window.joinRoom = joinRoom;
 window.openCreateModal = openCreateModal;

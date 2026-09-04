@@ -1515,7 +1515,6 @@
                         <span class="duration">0:00</span>
                     </div>
                 `;
-            // Audio player will be initialized after append
         } else if (message.type === 'image') {
             content = '<img src="' + message.content + '" class="media-message" onclick="window.open(this.src)">';
         } else if (message.type === 'video') {
@@ -1570,7 +1569,6 @@
         container.appendChild(div);
         scrollToBottom();
 
-        // Audio player setup for audio messages
         if (message.type === 'audio') {
             const audioElement = new Audio(message.content);
             const playBtn = div.querySelector('.play-btn');
@@ -1758,7 +1756,6 @@
     });
 
     socket.on('poll-updated', function(data) {
-        // Refresh messages to show updated poll
         const container = document.getElementById('messagesContainer');
         const messages = container.querySelectorAll('.message');
         messages.forEach(function(msg) {
@@ -1766,7 +1763,6 @@
                 msg.remove();
             }
         });
-        // Request updated messages
         socket.emit('request-messages', roomId);
     });
 

@@ -1461,13 +1461,15 @@
     function createTrendItem(data) {
         const div = document.createElement('div');
         div.className = 'trend-item';
+
+        // CORRECTION : Redirection vers /room/ pour les salons
         div.onclick = function() {
             if (data.type === 'room') {
                 const username = prompt('👤 Entrez votre pseudo pour rejoindre :', 'Anonyme') || 'Anonyme';
                 if (username) {
                     sessionStorage.setItem('username', username);
                     sessionStorage.setItem('roomId', data.id);
-                    window.location.href = '/chat/' + data.id;
+                    window.location.href = '/room/' + data.id;
                 }
             }
         };
