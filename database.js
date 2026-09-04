@@ -1,5 +1,5 @@
 // ================================================================
-// ========== DATABASE.JS - GESTION DES DONNÉES ==========
+// ========== DATABASE.JS - GESTION COMPLÈTE DES DONNÉES ==========
 // ================================================================
 
 const fs = require('fs');
@@ -12,7 +12,6 @@ const path = require('path');
 const DATA_DIR = path.join(__dirname, 'data');
 const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FEED_FILE = path.join(DATA_DIR, 'feed.json');
 const EPHEMERAL_FILE = path.join(DATA_DIR, 'ephemeral.json');
 
@@ -26,11 +25,9 @@ function initDataDir() {
         console.log('📁 Dossier data créé');
     }
 
-    // Créer les fichiers s'ils n'existent pas
     const files = [
         { path: ROOMS_FILE, default: {} },
         { path: MESSAGES_FILE, default: {} },
-        { path: USERS_FILE, default: {} },
         { path: FEED_FILE, default: [] },
         { path: EPHEMERAL_FILE, default: [] }
     ];
@@ -86,6 +83,8 @@ function getRoom(roomId) {
 
 function createRoom(roomId, roomData) {
     const rooms = getRooms();
+    if (rooms[roomId]) return false;
+
     rooms[roomId] = {
         id: roomId,
         name: roomData.name || 'Salon sans nom',
@@ -117,21 +116,61 @@ function deleteRoom(roomId) {
 
 function getAllRooms() {
     const rooms = getRooms();
-    return Object.values(rooms);
-}
-
-function getRoomsByCategory(category) {
-    const rooms = getRooms();
-    return Object.values(rooms).filter(function(room) {
-        return room.category === category;
-    });
+    const result = [];
+    for (var id in rooms) {
+        result.push(rooms[id]);
+    }
+    return result;
 }
 
 function getPublicRooms() {
     const rooms = getRooms();
-    return Object.values(rooms).filter(function(room) {
-        return room.type === 'public';
-    });
+    const result = [];
+    for (var id in rooms) {
+        if (rooms[id].type === 'public') {
+            result.push(rooms[id]);
+        }
+    }
+    return result;
+}
+
+function getRoomsByCategory(category) {
+    const rooms = getRooms();
+    const result = [];
+    for (var id in rooms) {
+        if (rooms[id].category === category) {
+            result.push(rooms[id]);
+        }
+    }
+    return result;
+}
+
+function getRoomMessagesCount(roomId) {
+    const messages = getMessages();
+    return messages[roomId] ? messages[roomId].length : 0;
+}
+
+function addParticipantToRoom(roomId, username) {
+    const rooms = getRooms();
+    if (!rooms[roomId]) return false;
+    if (!rooms[roomId].participants) {
+        rooms[roomId].participants = [];
+    }
+    if (!rooms[roomId].participants.includes(username)) {
+        rooms[roomId].participants.push(username);
+    }
+    return saveRooms(rooms);
+}
+
+function removeParticipantFromRoom(roomId, username) {
+    const rooms = getRooms();
+    if (!rooms[roomId]) return false;
+    if (rooms[roomId].participants) {
+        rooms[roomId].participants = rooms[roomId].participants.filter(function(u) {
+            return u !== username;
+        });
+    }
+    return saveRooms(rooms);
 }
 
 // ================================================================
@@ -160,9 +199,27 @@ function addMessageToRoom(roomId, message) {
     return saveMessages(messages);
 }
 
+function addMultipleMessagesToRoom(roomId, newMessages) {
+    const messages = getMessages();
+    if (!messages[roomId]) {
+        messages[roomId] = [];
+    }
+    messages[roomId] = messages[roomId].concat(newMessages);
+    return saveMessages(messages);
+}
+
 function getLastMessages(roomId, limit) {
     const messages = getRoomMessages(roomId);
     return messages.slice(-limit || 50);
+}
+
+function getMessagesBefore(roomId, beforeId, limit) {
+    const messages = getRoomMessages(roomId);
+    const index = messages.findIndex(function(m) {
+        return m.id === beforeId;
+    });
+    if (index === -1) return [];
+    return messages.slice(Math.max(0, index - limit), index);
 }
 
 function deleteMessageFromRoom(roomId, messageId) {
@@ -189,69 +246,11 @@ function editMessageInRoom(roomId, messageId, newText) {
     return saveMessages(messages);
 }
 
-// ================================================================
-// ========== GESTION DES UTILISATEURS ==========
-// ================================================================
-
-function getUsers() {
-    return readData(USERS_FILE);
-}
-
-function saveUsers(users) {
-    return writeData(USERS_FILE, users);
-}
-
-function getUser(username) {
-    const users = getUsers();
-    return users[username] || null;
-}
-
-function createUser(username, userData) {
-    const users = getUsers();
-    if (users[username]) return false;
-    users[username] = {
-        username: username,
-        createdAt: new Date().toISOString(),
-        lastSeen: new Date().toISOString(),
-        status: userData.status || 'online',
-        avatar: userData.avatar || null,
-        bio: userData.bio || '',
-        stats: {
-            messages: 0,
-            rooms: 0,
-            badges: []
-        }
-    };
-    return saveUsers(users);
-}
-
-function updateUser(username, updates) {
-    const users = getUsers();
-    if (!users[username]) return false;
-    users[username] = { ...users[username], ...updates };
-    return saveUsers(users);
-}
-
-function updateUserStats(username, statUpdate) {
-    const users = getUsers();
-    if (!users[username]) return false;
-    if (!users[username].stats) {
-        users[username].stats = { messages: 0, rooms: 0, badges: [] };
-    }
-    users[username].stats = { ...users[username].stats, ...statUpdate };
-    return saveUsers(users);
-}
-
-function getAllUsers() {
-    const users = getUsers();
-    return Object.values(users);
-}
-
-function getOnlineUsers() {
-    const users = getUsers();
-    return Object.values(users).filter(function(user) {
-        return user.status === 'online';
-    });
+function clearRoomMessages(roomId) {
+    const messages = getMessages();
+    if (!messages[roomId]) return false;
+    messages[roomId] = [];
+    return saveMessages(messages);
 }
 
 // ================================================================
@@ -268,17 +267,16 @@ function saveFeed(feed) {
 
 function addFeedPost(post) {
     const feed = getFeed();
-    feed.unshift(post); // Ajouter en premier
-    // Limiter à 100 posts
-    if (feed.length > 100) {
-        feed.splice(100);
+    feed.unshift(post);
+    if (feed.length > 200) {
+        feed.splice(200);
     }
     return saveFeed(feed);
 }
 
 function getFeedPosts(limit) {
     const feed = getFeed();
-    return feed.slice(0, limit || 20);
+    return feed.slice(0, limit || 50);
 }
 
 function getFeedPost(postId) {
@@ -308,6 +306,21 @@ function deleteFeedPost(postId) {
     return saveFeed(feed);
 }
 
+function likeFeedPost(postId) {
+    const post = getFeedPost(postId);
+    if (!post) return false;
+    post.likes = (post.likes || 0) + 1;
+    return updateFeedPost(postId, { likes: post.likes });
+}
+
+function addCommentToFeedPost(postId, comment) {
+    const post = getFeedPost(postId);
+    if (!post) return false;
+    if (!post.comments) post.comments = [];
+    post.comments.push(comment);
+    return updateFeedPost(postId, { comments: post.comments });
+}
+
 // ================================================================
 // ========== GESTION DU CONTENU ÉPHÉMÈRE ==========
 // ================================================================
@@ -323,12 +336,10 @@ function saveEphemeral(ephemeral) {
 function addEphemeralContent(content) {
     const ephemeral = getEphemeral();
     ephemeral.push(content);
+    const result = saveEphemeral(ephemeral);
     // Nettoyer les contenus expirés
-    const now = Date.now();
-    const filtered = ephemeral.filter(function(item) {
-        return item.expiresAt > now;
-    });
-    return saveEphemeral(filtered);
+    cleanEphemeral();
+    return result;
 }
 
 function getActiveEphemeral() {
@@ -336,6 +347,13 @@ function getActiveEphemeral() {
     const now = Date.now();
     return ephemeral.filter(function(item) {
         return item.expiresAt > now;
+    });
+}
+
+function getEphemeralById(id) {
+    const ephemeral = getEphemeral();
+    return ephemeral.find(function(item) {
+        return item.id === id;
     });
 }
 
@@ -349,6 +367,15 @@ function removeEphemeralContent(id) {
     return saveEphemeral(ephemeral);
 }
 
+function cleanEphemeral() {
+    const ephemeral = getEphemeral();
+    const now = Date.now();
+    const filtered = ephemeral.filter(function(item) {
+        return item.expiresAt > now;
+    });
+    return saveEphemeral(filtered);
+}
+
 // ================================================================
 // ========== STATISTIQUES ==========
 // ================================================================
@@ -356,7 +383,6 @@ function removeEphemeralContent(id) {
 function getStats() {
     const rooms = getRooms();
     const messages = getMessages();
-    const users = getUsers();
     const feed = getFeed();
     const ephemeral = getEphemeral();
 
@@ -364,13 +390,6 @@ function getStats() {
     for (var roomId in messages) {
         if (messages.hasOwnProperty(roomId)) {
             totalMessages += messages[roomId].length;
-        }
-    }
-
-    let onlineUsers = 0;
-    for (var username in users) {
-        if (users.hasOwnProperty(username) && users[username].status === 'online') {
-            onlineUsers++;
         }
     }
 
@@ -382,10 +401,23 @@ function getStats() {
     return {
         roomsCount: Object.keys(rooms).length,
         totalMessages: totalMessages,
-        activeUsers: onlineUsers,
         feedCount: feed.length,
-        ephemeralCount: activeEphemeral.length,
-        totalUsers: Object.keys(users).length
+        ephemeralCount: activeEphemeral.length
+    };
+}
+
+function getRoomStats(roomId) {
+    const room = getRoom(roomId);
+    if (!room) return null;
+    const messages = getRoomMessages(roomId);
+    return {
+        id: roomId,
+        name: room.name,
+        category: room.category,
+        participants: room.participants ? room.participants.length : 0,
+        messagesCount: messages.length,
+        createdAt: room.createdAt,
+        isDefault: room.isDefault || false
     };
 }
 
@@ -393,73 +425,72 @@ function getStats() {
 // ========== SAUVEGARDE AUTOMATIQUE ==========
 // ================================================================
 
-// Sauvegarder toutes les données périodiquement (toutes les 5 minutes)
+// Sauvegarder périodiquement (toutes les 5 minutes)
 setInterval(function() {
-    // Les données sont déjà sauvegardées à chaque modification
-    // Mais on peut forcer un flush si nécessaire
-    console.log('💾 Sauvegarde automatique des données effectuée');
+    console.log('💾 Sauvegarde automatique effectuée');
 }, 5 * 60 * 1000);
 
 // ================================================================
-// ========== INITIALISATION ==========
+// INITIALISATION
 // ================================================================
 
-// Initialiser le dossier data au démarrage
 initDataDir();
+cleanEphemeral();
 
 console.log('✅ Base de données initialisée');
 
 // ================================================================
-// ========== EXPORT ==========
+// EXPORT
 // ================================================================
 
 module.exports = {
     // Salons
-    getRooms,
-    saveRooms,
-    getRoom,
-    createRoom,
-    updateRoom,
-    deleteRoom,
-    getAllRooms,
-    getRoomsByCategory,
-    getPublicRooms,
+    getRooms: getRooms,
+    saveRooms: saveRooms,
+    getRoom: getRoom,
+    createRoom: createRoom,
+    updateRoom: updateRoom,
+    deleteRoom: deleteRoom,
+    getAllRooms: getAllRooms,
+    getPublicRooms: getPublicRooms,
+    getRoomsByCategory: getRoomsByCategory,
+    getRoomMessagesCount: getRoomMessagesCount,
+    addParticipantToRoom: addParticipantToRoom,
+    removeParticipantFromRoom: removeParticipantFromRoom,
 
     // Messages
-    getMessages,
-    saveMessages,
-    getRoomMessages,
-    addMessageToRoom,
-    getLastMessages,
-    deleteMessageFromRoom,
-    editMessageInRoom,
-
-    // Utilisateurs
-    getUsers,
-    saveUsers,
-    getUser,
-    createUser,
-    updateUser,
-    updateUserStats,
-    getAllUsers,
-    getOnlineUsers,
+    getMessages: getMessages,
+    saveMessages: saveMessages,
+    getRoomMessages: getRoomMessages,
+    addMessageToRoom: addMessageToRoom,
+    addMultipleMessagesToRoom: addMultipleMessagesToRoom,
+    getLastMessages: getLastMessages,
+    getMessagesBefore: getMessagesBefore,
+    deleteMessageFromRoom: deleteMessageFromRoom,
+    editMessageInRoom: editMessageInRoom,
+    clearRoomMessages: clearRoomMessages,
 
     // Feed
-    getFeed,
-    saveFeed,
-    addFeedPost,
-    getFeedPosts,
-    getFeedPost,
-    updateFeedPost,
-    deleteFeedPost,
+    getFeed: getFeed,
+    saveFeed: saveFeed,
+    addFeedPost: addFeedPost,
+    getFeedPosts: getFeedPosts,
+    getFeedPost: getFeedPost,
+    updateFeedPost: updateFeedPost,
+    deleteFeedPost: deleteFeedPost,
+    likeFeedPost: likeFeedPost,
+    addCommentToFeedPost: addCommentToFeedPost,
 
     // Éphémère
-    getEphemeral,
-    saveEphemeral,
-    addEphemeralContent,
-    getActiveEphemeral,
-    removeEphemeralContent,
+    getEphemeral: getEphemeral,
+    saveEphemeral: saveEphemeral,
+    addEphemeralContent: addEphemeralContent,
+    getActiveEphemeral: getActiveEphemeral,
+    getEphemeralById: getEphemeralById,
+    removeEphemeralContent: removeEphemeralContent,
+    cleanEphemeral: cleanEphemeral,
 
     // Stats
-    getStats
+    getStats: getStats,
+    getRoomStats: getRoomStats
 };

@@ -1,5 +1,5 @@
 // ================================================================
-// ========== SERVER.JS - AVEC DATABASE ==========
+// ========== SERVER.JS - SERVEUR PRINCIPAL ==========
 // ================================================================
 
 const express = require('express');
@@ -23,10 +23,51 @@ const io = socketIo(server, {
 // MIDDLEWARE
 // ================================================================
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ================================================================
+// ROUTES PAGES HTML
+// ================================================================
+
+// Page d'accueil
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Page Explorer
+app.get('/explore', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'explore.html'));
+});
+
+// Page Tendances
+app.get('/trends', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'trends.html'));
+});
+
+// Page Social
+app.get('/social', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'social.html'));
+});
+
+// Page Salons
+app.get('/chat', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'chat.html'));
+});
+
+// Page Salon avec ID
+app.get('/chat/:roomId', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'chat.html'));
+});
+
+// ================================================================
+// FICHIERS STATIQUES
+// ================================================================
+app.use('/styles', express.static(path.join(__dirname, 'public', 'styles')));
+app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 app.use(express.static('public'));
 
 // ================================================================
-// ========== SALONS PAR DÉFAUT ==========
+// SALONS PAR DÉFAUT
 // ================================================================
 
 const DEFAULT_ROOMS = [
@@ -35,11 +76,17 @@ const DEFAULT_ROOMS = [
     { id: 'tech-001', name: '💻 Tech & Innovation', description: 'Actualités tech et innovations', category: 'technologie', icon: '💻', isDefault: true },
     { id: 'gaming-001', name: '🎮 Gaming', description: 'Jeux vidéo, e-sport et gaming', category: 'divertissement', icon: '🎮', isDefault: true },
     { id: 'art-001', name: '🎨 Art & Design', description: 'Créativité et inspiration', category: 'art', icon: '🎨', isDefault: true },
-    { id: 'sports-001', name: '⚽ Sports', description: 'Toute l\'actualité sportive', category: 'sport', icon: '⚽', isDefault: true }
+    { id: 'sports-001', name: '⚽ Sports', description: 'Toute l\'actualité sportive', category: 'sport', icon: '⚽', isDefault: true },
+    { id: 'music-001', name: '🎵 Musique', description: 'Partagez vos playlists', category: 'divertissement', icon: '🎵', isDefault: true },
+    { id: 'movies-001', name: '🎬 Cinéma & Séries', description: 'Films, séries et critiques', category: 'divertissement', icon: '🎬', isDefault: true },
+    { id: 'lifestyle-001', name: '🌿 Lifestyle', description: 'Bien-être et mode de vie', category: 'lifestyle', icon: '🌿', isDefault: true },
+    { id: 'social-001', name: '🌍 Actualités', description: 'Actualités mondiales', category: 'social', icon: '🌍', isDefault: true }
 ];
 
 function initDefaultRooms() {
     const existingRooms = db.getRooms();
+    var hasChanges = false;
+
     DEFAULT_ROOMS.forEach(function(room) {
         if (!existingRooms[room.id]) {
             db.createRoom(room.id, {
@@ -61,17 +108,19 @@ function initDefaultRooms() {
                 isSystem: true
             };
             db.addMessageToRoom(room.id, welcomeMsg);
+            hasChanges = true;
         }
     });
-    console.log('✅ Salons par défaut initialisés');
+
+    if (hasChanges) {
+        console.log('✅ Salons par défaut initialisés');
+    }
 }
 initDefaultRooms();
 
 // ================================================================
-// ========== ROUTES API ==========
+// ROUTES API - SALONS
 // ================================================================
-
-// --- 1. ROUTES DES SALONS ---
 
 // Récupérer tous les salons publics
 app.get('/api/rooms', (req, res) => {
@@ -151,7 +200,6 @@ app.post('/api/rooms', (req, res) => {
     });
 
     if (success) {
-        // Message de bienvenue
         const welcomeMsg = {
             id: 'welcome-' + Date.now(),
             username: 'KM-Chat',
@@ -161,22 +209,41 @@ app.post('/api/rooms', (req, res) => {
             isSystem: true
         };
         db.addMessageToRoom(roomId, welcomeMsg);
-
         res.json({ success: true, roomId: roomId });
     } else {
         res.status(500).json({ error: 'Erreur lors de la création' });
     }
 });
 
-// --- 2. ROUTES DU FLUX D'ACTUALITÉ ---
+// Supprimer un salon
+app.delete('/api/rooms/:id', (req, res) => {
+    const room = db.getRoom(req.params.id);
+    if (!room) {
+        return res.status(404).json({ error: 'Salon non trouvé' });
+    }
+    if (room.isDefault) {
+        return res.status(403).json({ error: 'Impossible de supprimer un salon par défaut' });
+    }
+    const success = db.deleteRoom(req.params.id);
+    if (success) {
+        db.clearRoomMessages(req.params.id);
+        res.json({ success: true });
+    } else {
+        res.status(500).json({ error: 'Erreur lors de la suppression' });
+    }
+});
 
-// Récupérer le flux d'actualité
+// ================================================================
+// ROUTES API - FLUX D'ACTUALITÉ
+// ================================================================
+
+// Récupérer le flux
 app.get('/api/feed', (req, res) => {
     const feed = db.getFeedPosts(50);
     res.json(feed);
 });
 
-// Ajouter un post dans le flux
+// Ajouter un post
 app.post('/api/feed', (req, res) => {
     const { content, type, author } = req.body;
 
@@ -206,25 +273,17 @@ app.post('/api/feed', (req, res) => {
 
 // Liker un post
 app.post('/api/feed/:id/like', (req, res) => {
-    const post = db.getFeedPost(req.params.id);
-    if (!post) {
-        return res.status(404).json({ error: 'Post non trouvé' });
-    }
-    post.likes = (post.likes || 0) + 1;
-    const success = db.updateFeedPost(req.params.id, { likes: post.likes });
+    const success = db.likeFeedPost(req.params.id);
     if (success) {
+        const post = db.getFeedPost(req.params.id);
         res.json({ success: true, likes: post.likes });
     } else {
-        res.status(500).json({ error: 'Erreur lors du like' });
+        res.status(404).json({ error: 'Post non trouvé' });
     }
 });
 
 // Commenter un post
 app.post('/api/feed/:id/comment', (req, res) => {
-    const post = db.getFeedPost(req.params.id);
-    if (!post) {
-        return res.status(404).json({ error: 'Post non trouvé' });
-    }
     const { author, text } = req.body;
 
     if (!text || text.trim() === '') {
@@ -237,13 +296,12 @@ app.post('/api/feed/:id/comment', (req, res) => {
         text: text.trim(),
         timestamp: new Date().toISOString()
     };
-    if (!post.comments) post.comments = [];
-    post.comments.push(comment);
-    const success = db.updateFeedPost(req.params.id, { comments: post.comments });
+
+    const success = db.addCommentToFeedPost(req.params.id, comment);
     if (success) {
         res.json({ success: true, comment: comment });
     } else {
-        res.status(500).json({ error: 'Erreur lors du commentaire' });
+        res.status(404).json({ error: 'Post non trouvé' });
     }
 });
 
@@ -262,14 +320,29 @@ app.post('/api/feed/:id/share', (req, res) => {
     }
 });
 
-// --- 3. ROUTES STATISTIQUES ---
+// Supprimer un post
+app.delete('/api/feed/:id', (req, res) => {
+    const success = db.deleteFeedPost(req.params.id);
+    if (success) {
+        io.emit('feed-update', { postId: req.params.id, action: 'delete' });
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ error: 'Post non trouvé' });
+    }
+});
+
+// ================================================================
+// ROUTES API - STATISTIQUES
+// ================================================================
 
 app.get('/api/stats', (req, res) => {
     const stats = db.getStats();
     res.json(stats);
 });
 
-// --- 4. ROUTES DES TENDANCES ---
+// ================================================================
+// ROUTES API - TENDANCES
+// ================================================================
 
 app.get('/api/trends', (req, res) => {
     const rooms = db.getPublicRooms();
@@ -295,7 +368,7 @@ app.get('/api/trends', (req, res) => {
         .map(function(post) {
             return {
                 id: post.id,
-                content: post.content,
+                content: post.content.substring(0, 100) + (post.content.length > 100 ? '...' : ''),
                 author: post.author,
                 likes: post.likes || 0,
                 comments: (post.comments || []).length
@@ -332,43 +405,119 @@ app.get('/api/trends', (req, res) => {
     });
 });
 
-// --- 5. ROUTES DÉCOUVERTE ---
+// ================================================================
+// ROUTES API - CONTENU ÉPHÉMÈRE
+// ================================================================
 
-app.get('/api/discover', (req, res) => {
-    const rooms = db.getPublicRooms();
+// Créer du contenu éphémère
+app.post('/api/ephemeral', (req, res) => {
+    const { content, author, duration } = req.body;
 
-    const newRooms = rooms
-        .filter(function(room) { return !room.isDefault; })
-        .sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); })
-        .slice(0, 6)
-        .map(function(room) {
-            return {
-                id: room.id,
-                name: room.name,
-                icon: room.icon,
-                description: room.description,
-                participants: room.participants ? room.participants.length : 0
-            };
-        });
+    if (!content || content.trim() === '') {
+        return res.status(400).json({ error: 'Le contenu est requis' });
+    }
 
-    const categories = {};
-    rooms.forEach(function(room) {
-        if (!categories[room.category]) {
-            categories[room.category] = 0;
-        }
-        categories[room.category]++;
+    const id = 'eph-' + Date.now();
+    const expiresAt = Date.now() + (duration || 60 * 60 * 1000);
+
+    const ephContent = {
+        id: id,
+        content: content.trim(),
+        type: 'text',
+        author: author || 'Anonyme',
+        expiresAt: expiresAt,
+        createdAt: new Date().toISOString()
+    };
+
+    const success = db.addEphemeralContent(ephContent);
+    if (success) {
+        io.emit('ephemeral-new', ephContent);
+        res.json({ success: true, id: id, expiresAt: expiresAt });
+    } else {
+        res.status(500).json({ error: 'Erreur lors de la création' });
+    }
+});
+
+// Récupérer le contenu éphémère actif
+app.get('/api/ephemeral', (req, res) => {
+    const active = db.getActiveEphemeral();
+    const now = Date.now();
+    const result = active.map(function(item) {
+        return {
+            id: item.id,
+            content: item.content,
+            type: item.type,
+            author: item.author,
+            expiresAt: item.expiresAt,
+            timeLeft: item.expiresAt - now
+        };
+    });
+    res.json(result);
+});
+
+// ================================================================
+// ROUTES API - INTÉGRATIONS SOCIALES
+// ================================================================
+
+// Statut des intégrations
+app.get('/api/social/status', (req, res) => {
+    res.json({
+        twitter: { connected: false },
+        facebook: { connected: false },
+        instagram: { connected: false },
+        whatsapp: { connected: false },
+        linkedin: { connected: false }
+    });
+});
+
+// Connecter une plateforme
+app.post('/api/social/:platform/connect', (req, res) => {
+    const { platform } = req.params;
+    res.json({
+        success: true,
+        message: platform + ' connecté avec succès',
+        platform: platform
+    });
+});
+
+// Déconnecter une plateforme
+app.post('/api/social/:platform/disconnect', (req, res) => {
+    const { platform } = req.params;
+    res.json({
+        success: true,
+        message: platform + ' déconnecté',
+        platform: platform
+    });
+});
+
+// Publier sur les réseaux sociaux
+app.post('/api/social/publish', (req, res) => {
+    const { content, platforms } = req.body;
+
+    if (!content || content.trim() === '') {
+        return res.status(400).json({ error: 'Le contenu est requis' });
+    }
+
+    const results = {};
+    const selectedPlatforms = platforms || ['twitter', 'facebook', 'whatsapp'];
+
+    selectedPlatforms.forEach(function(platform) {
+        results[platform] = {
+            success: true,
+            message: 'Publié sur ' + platform,
+            timestamp: new Date().toISOString()
+        };
     });
 
     res.json({
-        newRooms: newRooms,
-        categories: Object.entries(categories).map(function(entry) {
-            return { name: entry[0], count: entry[1] };
-        })
+        success: true,
+        results: results,
+        message: 'Publication envoyée sur ' + selectedPlatforms.length + ' plateforme(s)'
     });
 });
 
 // ================================================================
-// ========== SOCKET.IO ==========
+// SOCKET.IO - COMMUNICATION EN TEMPS RÉEL
 // ================================================================
 
 io.on('connection', function(socket) {
@@ -376,7 +525,9 @@ io.on('connection', function(socket) {
 
     let currentUser = null;
     let currentRoom = null;
+    let typingTimeout = null;
 
+    // --- REJOINDRE UN SALON ---
     socket.on('join-room', function(data) {
         const { roomId, username } = data;
         const room = db.getRoom(roomId);
@@ -386,39 +537,35 @@ io.on('connection', function(socket) {
             return;
         }
 
+        // Quitter l'ancien salon
         if (currentRoom) {
             socket.leave(currentRoom);
+            db.removeParticipantFromRoom(currentRoom, currentUser);
+            io.to(currentRoom).emit('user-left', { username: currentUser });
             const oldRoom = db.getRoom(currentRoom);
-            if (oldRoom && oldRoom.participants) {
-                oldRoom.participants = oldRoom.participants.filter(function(u) {
-                    return u !== currentUser;
-                });
-                db.updateRoom(currentRoom, { participants: oldRoom.participants });
-                io.to(currentRoom).emit('user-left', { username: currentUser });
-                io.to(currentRoom).emit('update-participants', oldRoom.participants.length);
-            }
+            io.to(currentRoom).emit('update-participants', oldRoom ? oldRoom.participants.length : 0);
         }
 
         currentRoom = roomId;
         currentUser = username;
         socket.join(roomId);
 
-        if (!room.participants) room.participants = [];
-        if (!room.participants.includes(username)) {
-            room.participants.push(username);
-            db.updateRoom(roomId, { participants: room.participants });
-        }
+        // Ajouter le participant
+        db.addParticipantToRoom(roomId, username);
 
         // Envoyer l'historique des messages
         const messages = db.getLastMessages(roomId, 50);
         socket.emit('load-messages', messages);
-        io.to(roomId).emit('update-participants', room.participants.length);
+
+        // Mettre à jour les participants
+        const updatedRoom = db.getRoom(roomId);
+        io.to(roomId).emit('update-participants', updatedRoom ? updatedRoom.participants.length : 0);
         socket.to(roomId).emit('user-joined', { username: username });
 
         console.log('👤 ' + username + ' a rejoint ' + room.name);
     });
 
-    // Envoyer un message
+    // --- ENVOYER UN MESSAGE ---
     socket.on('send-message', function(data) {
         if (!currentRoom || !currentUser) return;
 
@@ -436,7 +583,7 @@ io.on('connection', function(socket) {
         if (success) {
             io.to(currentRoom).emit('new-message', message);
 
-            // Simuler la réception
+            // Simuler les statuts de message
             setTimeout(function() {
                 io.to(currentRoom).emit('message-delivered', message.id);
             }, 300);
@@ -446,25 +593,31 @@ io.on('connection', function(socket) {
         }
     });
 
-    // Déconnexion
+    // --- INDICATEUR DE SAISIE ---
+    socket.on('typing', function() {
+        if (!currentRoom || !currentUser) return;
+        socket.to(currentRoom).emit('user-typing', { username: currentUser });
+    });
+
+    socket.on('stop-typing', function() {
+        if (!currentRoom || !currentUser) return;
+        socket.to(currentRoom).emit('user-stop-typing', { username: currentUser });
+    });
+
+    // --- DÉCONNEXION ---
     socket.on('disconnect', function() {
         if (currentRoom && currentUser) {
+            db.removeParticipantFromRoom(currentRoom, currentUser);
+            io.to(currentRoom).emit('user-left', { username: currentUser });
             const room = db.getRoom(currentRoom);
-            if (room && room.participants) {
-                room.participants = room.participants.filter(function(u) {
-                    return u !== currentUser;
-                });
-                db.updateRoom(currentRoom, { participants: room.participants });
-                io.to(currentRoom).emit('user-left', { username: currentUser });
-                io.to(currentRoom).emit('update-participants', room.participants.length);
-            }
+            io.to(currentRoom).emit('update-participants', room ? room.participants.length : 0);
             console.log('👤 ' + currentUser + ' a quitté');
         }
     });
 });
 
 // ================================================================
-// ========== SERVEUR ==========
+// LANCEMENT DU SERVEUR
 // ================================================================
 
 const PORT = process.env.PORT || 3000;
@@ -473,6 +626,18 @@ server.listen(PORT, function() {
     console.log('✅ KM-Chat démarré avec succès !');
     console.log('========================================');
     console.log('🌐 http://localhost:' + PORT);
-    console.log('📊 Base de données: ' + (process.env.DATABASE_URL || 'locale'));
+    console.log('📊 Base de données: locale');
     console.log('========================================');
+});
+
+// ================================================================
+// GESTION DES ERREURS
+// ================================================================
+
+process.on('uncaughtException', function(err) {
+    console.error('❌ Erreur non capturée:', err.message);
+});
+
+process.on('unhandledRejection', function(reason, promise) {
+    console.error('❌ Promesse non gérée:', reason);
 });

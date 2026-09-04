@@ -1,0 +1,239 @@
+/* ================================================================ */
+/* ========== SOCIAL.CSS - STYLES SPÉCIFIQUES À SOCIAL ========== */
+/* ================================================================ */
+
+/* ================================================================ */
+/* HERO SOCIAL */
+/* ================================================================ */
+
+.social-hero {
+    position: relative;
+    padding: 120px 0 40px;
+    text-align: center;
+    z-index: 1;
+}
+
+.social-hero h1 {
+    font-family: var(--font-serif);
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 800;
+    margin-bottom: 12px;
+    animation: fadeInUp 0.8s ease 0.2s both;
+}
+
+.social-hero h1 .highlight {
+    background: linear-gradient(135deg, #25d366, #128C7E);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.social-hero p {
+    color: var(--color-text-muted);
+    font-size: 16px;
+    max-width: 500px;
+    margin: 0 auto;
+    animation: fadeInUp 0.8s ease 0.4s both;
+}
+
+/* ================================================================ */
+/* GRILLE SOCIALE */
+/* ================================================================ */
+
+.social-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.social-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    text-align: center;
+    transition: all var(--transition);
+}
+
+.social-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--color-border-hover);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.social-card .icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.social-card .name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
+}
+
+.social-card .desc {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin-bottom: 16px;
+}
+
+.social-card .status {
+    font-size: 13px;
+    padding: 4px 16px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-bottom: 16px;
+}
+
+.social-card .status.connected {
+    background: rgba(76, 175, 80, 0.12);
+    color: var(--color-success);
+}
+
+.social-card .status.disconnected {
+    background: var(--color-bg-card);
+    color: var(--color-text-dim);
+}
+
+.social-card .btn-connect {
+    width: 100%;
+    justify-content: center;
+}
+
+.social-card .last-post {
+    font-size: 12px;
+    color: var(--color-text-dim);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+}
+
+/* ================================================================ */
+/* ZONE DE PUBLICATION */
+/* ================================================================ */
+
+.publish-area {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    margin-top: 40px;
+}
+
+.publish-area h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 12px;
+}
+
+.publish-area textarea {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color var(--transition);
+}
+
+.publish-area textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.publish-area textarea::placeholder {
+    color: var(--color-text-dim);
+}
+
+.publish-area .platform-select {
+    display: flex;
+    gap: 16px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+}
+
+.publish-area .platform-select label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: color var(--transition);
+}
+
+.publish-area .platform-select label:hover {
+    color: var(--color-text-primary);
+}
+
+.publish-area .platform-select input[type="checkbox"] {
+    accent-color: var(--color-primary);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.publish-area .publish-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.publish-area .publish-actions .btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 120px;
+}
+
+/* ================================================================ */
+/* RESPONSIVE SOCIAL */
+/* ================================================================ */
+
+@media (max-width: 1024px) {
+    .social-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .social-hero {
+        padding: 100px 0 20px;
+    }
+
+    .social-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .publish-area .platform-select {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .publish-area .publish-actions {
+        flex-direction: column;
+    }
+
+    .publish-area .publish-actions .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .social-card {
+        padding: 18px;
+    }
+
+    .publish-area {
+        padding: 20px;
+    }
+}
