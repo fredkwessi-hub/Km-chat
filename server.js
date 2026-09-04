@@ -1,5 +1,5 @@
 // ================================================================
-// ========== SERVER.JS - SERVEUR PRINCIPAL ==========
+// ========== SERVER.JS - VERSION COMPLÈTE ==========
 // ================================================================
 
 const express = require('express');
@@ -8,6 +8,7 @@ const socketIo = require('socket.io');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
+const multer = require('multer');
 require('dotenv').config();
 
 const app = express();
@@ -24,7 +25,51 @@ const io = socketIo(server, {
 // ================================================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ================================================================
+// MULTER CONFIGURATION - UPLOAD FILES
+// ================================================================
+const storage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        const uploadDir = './uploads';
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function(req, file, cb) {
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
+        cb(null, uniqueName);
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 50 * 1024 * 1024 }
+});
+
+// Audio upload
+const audioStorage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        const audioDir = './uploads/audio';
+        if (!fs.existsSync(audioDir)) {
+            fs.mkdirSync(audioDir, { recursive: true });
+        }
+        cb(null, audioDir);
+    },
+    filename: function(req, file, cb) {
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + '.webm';
+        cb(null, uniqueName);
+    }
+});
+
+const audioUpload = multer({ storage: audioStorage });
+
+// ================================================================
+// FICHIERS STATIQUES
+// ================================================================
 app.use(express.static('public'));
+app.use('/uploads', express.static('uploads'));
 
 // ================================================================
 // ROUTES PAGES HTML
@@ -50,15 +95,38 @@ app.get('/chat', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'chat.html'));
 });
 
-app.get('/chat/:roomId', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'chat.html'));
+app.get('/room/:roomId', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'room.html'));
+});
+
+// ================================================================
+// UPLOAD ROUTES
+// ================================================================
+
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'Aucun fichier uploadé' });
+    }
+    res.json({
+        url: '/uploads/' + req.file.filename,
+        type: req.file.mimetype,
+        name: req.file.originalname
+    });
+});
+
+app.post('/api/upload-audio', audioUpload.single('audio'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'Aucun audio uploadé' });
+    }
+    res.json({
+        url: '/uploads/audio/' + req.file.filename
+    });
 });
 
 // ================================================================
 // SALONS PAR DÉFAUT
 // ================================================================
 
-// Stockage en mémoire
 const rooms = new Map();
 const roomMessages = new Map();
 
@@ -133,24 +201,6 @@ app.get('/api/rooms', (req, res) => {
     res.json(roomList);
 });
 
-app.get('/api/rooms/category/:category', (req, res) => {
-    const { category } = req.params;
-    const roomList = [];
-    rooms.forEach(function(room, id) {
-        if (room.type === 'public' && room.category === category) {
-            roomList.push({
-                id: id,
-                name: room.name,
-                description: room.description,
-                category: room.category,
-                icon: room.icon,
-                participants: room.participants ? room.participants.length : 0
-            });
-        }
-    });
-    res.json(roomList);
-});
-
 app.get('/api/room/:id', (req, res) => {
     const room = rooms.get(req.params.id);
     if (!room) {
@@ -201,19 +251,6 @@ app.post('/api/rooms', (req, res) => {
     roomMessages.get(roomId).push(welcomeMsg);
 
     res.json({ success: true, roomId: roomId });
-});
-
-app.delete('/api/rooms/:id', (req, res) => {
-    const room = rooms.get(req.params.id);
-    if (!room) {
-        return res.status(404).json({ error: 'Salon non trouvé' });
-    }
-    if (room.isDefault) {
-        return res.status(403).json({ error: 'Impossible de supprimer un salon par défaut' });
-    }
-    rooms.delete(req.params.id);
-    roomMessages.delete(req.params.id);
-    res.json({ success: true });
 });
 
 // ================================================================
@@ -293,16 +330,6 @@ app.post('/api/feed/:id/share', (req, res) => {
     res.json({ success: true, shares: post.shares });
 });
 
-app.delete('/api/feed/:id', (req, res) => {
-    const index = feedPosts.findIndex(function(p) { return p.id === req.params.id; });
-    if (index === -1) {
-        return res.status(404).json({ error: 'Post non trouvé' });
-    }
-    feedPosts.splice(index, 1);
-    io.emit('feed-update', { postId: req.params.id, action: 'delete' });
-    res.json({ success: true });
-});
-
 // ================================================================
 // ROUTES API - STATISTIQUES
 // ================================================================
@@ -327,7 +354,6 @@ app.get('/api/stats', (req, res) => {
 // ================================================================
 
 app.get('/api/trends', (req, res) => {
-    // Top rooms
     const topRooms = [];
     rooms.forEach(function(room, id) {
         const messages = roomMessages.get(id) || [];
@@ -341,7 +367,6 @@ app.get('/api/trends', (req, res) => {
     });
     topRooms.sort(function(a, b) { return b.count - a.count; });
 
-    // Top posts
     const topPosts = feedPosts.slice(0, 5).map(function(post) {
         return {
             id: post.id,
@@ -352,7 +377,6 @@ app.get('/api/trends', (req, res) => {
         };
     });
 
-    // Top users
     const userStats = {};
     feedPosts.forEach(function(post) {
         if (!userStats[post.author]) {
@@ -482,7 +506,6 @@ app.post('/api/ephemeral', (req, res) => {
 
     ephemeralContent.push(ephContent);
 
-    // Nettoyer les contenus expirés
     const now = Date.now();
     for (let i = ephemeralContent.length - 1; i >= 0; i--) {
         if (ephemeralContent[i].expiresAt < now) {
@@ -547,12 +570,22 @@ io.on('connection', function(socket) {
         const message = {
             id: 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
             username: currentUser,
-            text: data.text,
+            text: data.text || null,
             type: data.type || 'text',
             content: data.content || null,
+            fileName: data.fileName || null,
             timestamp: new Date().toISOString(),
             status: 'sent'
         };
+
+        // Si c'est un sondage
+        if (data.type === 'poll' && data.poll) {
+            message.poll = {
+                question: data.poll.question,
+                options: data.poll.options,
+                votes: data.poll.options.map(function() { return []; })
+            };
+        }
 
         const messages = roomMessages.get(currentRoom) || [];
         messages.push(message);
@@ -566,6 +599,51 @@ io.on('connection', function(socket) {
         setTimeout(function() {
             io.to(currentRoom).emit('message-read', message.id);
         }, 600);
+    });
+
+    // Créer un sondage
+    socket.on('create-poll', function(data) {
+        if (!currentRoom || !currentUser) return;
+
+        const pollMessage = {
+            id: 'poll-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+            username: currentUser,
+            text: '📊 Sondage: ' + data.question,
+            type: 'poll',
+            poll: {
+                question: data.question,
+                options: data.options,
+                votes: data.options.map(function() { return []; })
+            },
+            timestamp: new Date().toISOString(),
+            status: 'sent'
+        };
+
+        const messages = roomMessages.get(currentRoom) || [];
+        messages.push(pollMessage);
+        roomMessages.set(currentRoom, messages);
+
+        io.to(currentRoom).emit('new-message', pollMessage);
+    });
+
+    // Voter pour un sondage
+    socket.on('vote-poll', function(data) {
+        if (!currentRoom) return;
+        const { messageId, optionIndex } = data;
+        const messages = roomMessages.get(currentRoom);
+        if (messages) {
+            const message = messages.find(function(m) { return m.id === messageId; });
+            if (message && message.type === 'poll' && message.poll) {
+                // Enlever l'ancien vote de l'utilisateur
+                message.poll.options.forEach(function(_, idx) {
+                    message.poll.votes[idx] = message.poll.votes[idx].filter(function(u) {
+                        return u !== currentUser;
+                    });
+                });
+                message.poll.votes[optionIndex].push(currentUser);
+                io.to(currentRoom).emit('poll-updated', { messageId: messageId, votes: message.poll.votes });
+            }
+        }
     });
 
     socket.on('typing', function() {
@@ -605,7 +683,6 @@ server.listen(PORT, function() {
     console.log('🌐 http://localhost:' + PORT);
     console.log('📊 ' + rooms.size + ' salons disponibles');
     console.log('📝 ' + feedPosts.length + ' posts dans le flux');
-    console.log('👥 ' + io.engine.clientsCount + ' utilisateurs en ligne');
     console.log('========================================');
 });
 
